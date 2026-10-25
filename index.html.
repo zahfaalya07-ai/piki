@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SecureClass | Portal Mahasiswa</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;display:grid;place-items:center;padding:20px;background:#0b1120;color:#f8fafc;font-family:Arial,sans-serif}
+.container{width:100%;max-width:430px}
+.logo{text-align:center;margin-bottom:24px}
+.icon{display:inline-grid;place-items:center;width:64px;height:64px;border-radius:18px;background:#2563eb;font-size:30px;margin-bottom:12px}
+.logo h1{margin:0;font-size:28px}
+.logo h1 span{color:#60a5fa}
+.logo p,.subtitle{color:#94a3b8;font-size:14px}
+.card{background:#172033;border:1px solid #29364d;padding:25px;border-radius:18px}
+.card h2{margin:0 0 8px}
+label{display:block;margin:15px 0 8px;font-size:13px}
+input{width:100%;padding:13px;border-radius:9px;border:1px solid #475569;background:#0f172a;color:white;font-size:15px}
+button{width:100%;padding:13px;margin-top:17px;border:0;border-radius:9px;background:#2563eb;color:white;font-weight:bold;font-size:15px}
+button:disabled{opacity:.6}
+.secondary{margin-top:10px;background:transparent;border:1px solid #475569}
+.message{font-size:13px;line-height:1.5;color:#cbd5e1;overflow-wrap:anywhere;margin-top:14px}
+#dashboard{display:none}
+.info{padding:15px;margin-top:15px;background:#0f172a;border-radius:9px;line-height:1.8;font-size:14px}
+footer{text-align:center;color:#64748b;font-size:12px;margin-top:20px}
+</style>
+</head>
+<body>
+<main class="container">
+<header class="logo">
+<div class="icon">🛡️</div>
+<h1>Secure<span>Class</span></h1>
+<p>Sistem Informasi Kelas Mahasiswa</p>
+</header>
+
+<section class="card" id="auth">
+<h2 id="formTitle">Selamat Datang</h2>
+<p class="subtitle" id="formDesc">Masuk untuk mengakses portal kelas.</p>
+
+<form id="authForm">
+<div id="nameField" hidden>
+<label for="name">Nama lengkap</label>
+<input id="name" maxlength="100" autocomplete="name">
+</div>
+
+<label for="email">Email</label>
+<input id="email" type="email" required maxlength="254"
+autocomplete="email" placeholder="nama@email.com">
+
+<label for="password">Password</label>
+<input id="password" type="password" required minlength="8"
+maxlength="128" autocomplete="current-password"
+placeholder="Minimal 8 karakter">
+
+<button id="submitBtn" type="submit">Login</button>
+</form>
+
+<button class="secondary" id="switchBtn" type="button">
+Belum punya akun? Register
+</button>
+
+<p class="message" id="message" role="status" aria-live="polite">
+Tampilan siap. Supabase belum dihubungkan, jadi login/register belum aktif.
+</p>
+</section>
+
+<section class="card" id="dashboard">
+<h2>Dashboard Mahasiswa</h2>
+<p class="subtitle">Autentikasi berhasil.</p>
+<div class="info">
+<b>Email akun</b>
+<div id="userEmail"></div>
+</div>
+<button id="logoutBtn" type="button">Logout</button>
+<p id="dashMessage" class="message"></p>
+</section>
+
+<footer>SecureClass © 2026 · Proyek pembelajaran keamanan web</footer>
+</main>
+
+<script type="module">
+import { createClient } from
+'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+
+// Ganti dengan URL project dan publishable key Supabase.
+const SUPABASE_URL = 'MASUKKAN_PROJECT_URL';
+const SUPABASE_KEY = 'MASUKKAN_PUBLISHABLE_KEY';
+
+const $ = id => document.getElementById(id);
+let mode = 'login', supabase = null, busy = false;
+
+function say(text) {
+  $('message').textContent = text;
+}
+
+function setup() {
+  if (supabase) return true;
+
+  if (SUPABASE_URL.includes('MASUKKAN_') ||
+      SUPABASE_KEY.includes('MASUKKAN_')) {
+    say('Supabase belum dikonfigurasi. Website sudah tampil, tetapi autentikasi belum aktif.');
+    return false;
+  }
+
+  try {
+    supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+    return true;
+  } catch {
+    say('URL atau publishable key Supabase tidak valid.');
+    return false;
+  }
+}
+
+function showDashboard(user) {
+  $('auth').style.display = 'none';
+  $('dashboard').style.display = 'block';
+  $('userEmail').textContent = user.email || '';
+}
+
+function showLogin() {
+  $('dashboard').style.display = 'none';
+  $('auth').style.display = 'block';
+}
+
+$('switchBtn').addEventListener('click', () => {
+  if (busy) return;
+
+  mode = mode === 'login' ? 'register' : 'login';
+
+  $('formTitle').textContent =
+    mode === 'login' ? 'Selamat Datang' : 'Buat Akun';
+
+  $('formDesc').textContent =
+    mode === 'login'
+      ? 'Masuk untuk mengakses portal kelas.'
+      : 'Daftarkan akun SecureClass.';
+
+  $('nameField').hidden = mode !== 'register';
+  $('name').required = mode === 'register';
+
+  $('password').autocomplete =
+    mode === 'login' ? 'current-password' : 'new-password';
+
+  $('submitBtn').textContent =
+    mode === 'login' ? 'Login' : 'Register';
+
+  $('switchBtn').textContent =
+    mode === 'login'
+      ? 'Belum punya akun? Register'
+      : 'Sudah punya akun? Login';
+
+  say('');
+});
+
+$('authForm').addEventListener('submit', async e => {
+  e.preventDefault();
+
+  if (busy || !setup()) return;
+
+  busy = true;
+  $('submitBtn').disabled = true;
+  say('Memproses...');
+
+  try {
+    const email = $('email').value.trim();
+    const password = $('password').value;
+
+    if (mode === 'register') {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: { full_name: $('name').value.trim() }
+        }
+      });
+
+      if (error) throw error;
+
+      if (data.session) {
+        showDashboard(data.user);
+      } else {
+        say('Pendaftaran berhasil. Periksa email untuk konfirmasi, lalu login.');
+      }
+    } else {
+      const { data, error } =
+        await supabase.auth.signInWithPassword({
+          email, password
+        });
+
+      if (error) throw error;
+
+      showDashboard(data.user);
+    }
+  } catch (err) {
+    say(err.message || 'Terjadi kesalahan. Coba lagi.');
+  } finally {
+    busy = false;
+    $('submitBtn').disabled = false;
+  }
+});
+
+$('logoutBtn').addEventListener('click', async () => {
+  if (!setup()) return;
+
+  const { error } = await supabase.auth.signOut();
+
+  $('dashMessage').textContent = error
+    ? 'Logout gagal: ' + error.message
+    : 'Berhasil logout.';
+
+  showLogin();
+});
+
+if (!SUPABASE_URL.includes('MASUKKAN_') &&
+    !SUPABASE_KEY.includes('MASUKKAN_')) {
+  setup();
+
+  const { data } = await supabase.auth.getSession();
+
+  if (data.session) showDashboard(data.session.user);
+}
+</script>
+</body>
+</html>
